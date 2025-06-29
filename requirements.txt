@@ -1,0 +1,17 @@
+# General purpose libraries
+pandas==2.0.3
+gspread==5.12.4
+google-auth-oauthlib==1.2.0
+python-dotenv==1.0.1
+holidays==0.47
+requests==2.31.0
+certifi==2024.2.2
+matplotlib==3.7.5
+
+# Pinned versions to resolve forecasting dependency conflicts
+numpy==1.24.3
+scipy==1.10.1
+statsmodels==0.14.1
+statsforecast==1.6.0
+scikit-learn
+nbformat
