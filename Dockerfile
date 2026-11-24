@@ -1,20 +1,10 @@
-# Use an official Python runtime as a parent image
 FROM python:3.11-slim
-
-# Set the working directory in the container
 WORKDIR /app
-
-# Copy the requirements file into the container at /app
-COPY ./requirements.txt /app/requirements.txt
-
-# Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy the rest of the application's code into the container at /app
-COPY . /app
-
-# Make the entrypoint script executable
-RUN chmod +x /app/entrypoint.sh
-
-# Set the entrypoint
-ENTRYPOINT ["/app/entrypoint.sh"]
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+COPY requirements.txt ./
+RUN python -m pip install --no-cache-dir -r requirements.txt
+COPY src ./src
+COPY forecast_cli.py entrypoint.sh ./
+COPY examples ./examples
+ENTRYPOINT ["sh", "/app/entrypoint.sh"]
+CMD ["--demo"]
