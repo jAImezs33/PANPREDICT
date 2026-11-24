@@ -1,115 +1,190 @@
-# Pan-Predict 90 🥖
+# PANPREDICT 🥖
 
-**Predicción exprés de producción para panaderías y pastelerías artesanas.**
+Previsión local de ventas para panaderías, con una demo sin cuentas ni claves.
 
-Este proyecto es un micro-servicio diseñado para tomar un CSV de ventas diarias de un TPV, entrenar un modelo de serie temporal y generar un pronóstico de producción a 8 días vista. Los resultados se guardan en una hoja de Google Sheets y se envía una notificación diaria a Telegram con la producción recomendada.
+**Estado: prototipo para pilotos.** Incluye datos sintéticos, validación de CSV,
+una referencia semanal y AutoARIMA opcional. No hay resultados validados de ahorro,
+reducción de desperdicio ni precisión en negocios reales.
 
-## ✨ Características
+English: local bakery sales forecasting with an account-free synthetic demo,
+explicit missing-day handling and chronological holdout evaluation. Contributions
+and bug reports in English or Spanish are welcome.
 
-- **Ingesta de Datos**: Lee archivos CSV de ventas con formato `fecha;articulo;unidades`.
-- **Preprocesamiento Automático**: Limpia datos, rellena fechas faltantes y elimina outliers.
-- **Enriquecimiento de Datos (Opcional)**: Añade festivos nacionales de España y datos de temperatura máxima como características externas.
-- **Modelado Inteligente**: Utiliza `statsforecast` (AutoARIMA) para series de datos robustas y `prophet` como fallback para series más cortas.
-- **Persistencia de Modelos**: Guarda el modelo entrenado para acelerar los pronósticos diarios, con opción de reentrenamiento.
-- **Salida a Google Sheets**: Escribe el pronóstico en una hoja de Google Sheets para fácil acceso y visualización.
-- **Notificaciones a Telegram**: Envía un resumen diario del pronóstico a un chat de Telegram.
-- **Contenerización**: Incluye un `Dockerfile` para un despliegue fácil y reproducible.
+## Prueba rápida — Python 3.11
 
-## 🛠️ Pila Tecnológica
+Desde la raíz del repositorio:
 
-- Python 3.11
-- Pandas
-- StatsForecast / Prophet
-- GSpread para Google Sheets API
-- python-telegram-bot
-- Docker
+~~~bash
+python -m venv .venv
+~~~
 
----
+Activa el entorno en Windows PowerShell:
 
-## 🚀 Cómo Empezar
+~~~powershell
+.\.venv\Scripts\Activate.ps1
+~~~
 
-### 1. Prerrequisitos
+En Linux o macOS:
 
-- Python 3.11 o superior
-- Docker (recomendado para un despliegue sencillo)
-- Credenciales para Google Cloud (cuenta de servicio) y Telegram (token de bot).
+~~~bash
+source .venv/bin/activate
+~~~
 
-### 2. Instalación
+Instala y ejecuta la demo por terminal:
 
-1.  **Clona el repositorio:**
-    ```bash
-    git clone <URL_DEL_REPOSITORIO>
-    cd pan-predict-90
-    ```
+~~~bash
+python -m pip install -r requirements.txt
+python forecast_cli.py --demo --backtest
+~~~
 
-2.  **Instala las dependencias:**
-    Se recomienda crear un entorno virtual.
-    ```bash
-    python -m venv venv
-    source venv/bin/activate  # En Windows: venv\Scripts\activate
-    pip install -r requirements.txt
-    ```
+Se crea **output/pronostico.csv**. La demo no necesita servicios externos ni envía
+datos a Google o Telegram.
 
-### 3. Configuración del Entorno
+Para usar la interfaz:
 
-1.  **Crea un archivo `.env`** a partir de la plantilla:
-    ```bash
-    cp config_template.env .env
-    ```
+~~~bash
+python -m pip install -r requirements_streamlit.txt
+python -m streamlit run app.py --server.address 127.0.0.1
+~~~
 
-2.  **Edita el archivo `.env`** y añade tus credenciales:
+Abre la dirección local que indique Streamlit. La pantalla inicial muestra tres
+productos de ejemplo; permite cambiar el horizonte, descargar la previsión y
+evaluar los últimos siete días.
 
-    - `GOOGLE_SERVICE_ACC_JSON`: El contenido completo del archivo JSON de tu cuenta de servicio de Google. Debe ser una sola línea. Puedes usar una herramienta para convertir el JSON a una sola línea.
-    - `TELEGRAM_TOKEN`: El token de tu bot de Telegram.
-    - `CHAT_ID`: El ID del chat de Telegram donde se enviarán las notificaciones.
-    - `GOOGLE_SHEET_ID`: El ID de la hoja de cálculo de Google Sheets donde se guardará el pronóstico.
+## Tus ventas
 
-### 4. Prepara tus Datos
+Usa UTF-8, separado por punto y coma, coma o tabulador:
 
-- Coloca tu archivo de ventas en el directorio `data/`. El archivo debe llamarse `ventas.csv` (o el nombre que prefieras, lo pasarás como argumento).
-- El CSV debe estar separado por punto y coma (`;`) y tener las columnas: `fecha`, `articulo`, `unidades`.
+~~~csv
+fecha;articulo;unidades
+2026-10-01;Barra;110
+2026-10-02;Barra;0
+2026-10-03;Barra;125
+~~~
 
----
+También se aceptan **producto/cantidad** o **date/product/quantity**.
+Fechas: AAAA-MM-DD o DD/MM/AAAA. Con separador punto y coma se admite coma decimal.
+Ejemplo completo: [examples/ventas_demo.csv](examples/ventas_demo.csv), siempre sintético.
 
-## 🏃‍♂️ Cómo Ejecutar
+~~~bash
+python forecast_cli.py --csv ventas.csv --days 8 --output output/prevision.csv --backtest
+~~~
 
-### Usando el Script CLI
+Reglas:
 
-Puedes ejecutar el pipeline completo desde la línea de comandos. Es la forma más flexible de probar y depurar.
+- Se conservan los días con cero ventas.
+- Varias filas del mismo producto y fecha se suman.
+- Productos vacíos, cantidades negativas/no numéricas y fechas inválidas generan error.
+- Los productos deben tener al menos dos días y finalizar en una fecha común.
+- Los días ausentes **no se convierten automáticamente en cero**. Completa el
+  histórico; si sabes que esos días no hubo ventas, utiliza **--missing-days zero**
+  o la casilla equivalente en la interfaz.
+- Las fechas previstas empiezan tras el último día del archivo, aunque sea antiguo.
+- Horizontes: 1 a 90 días por terminal, 1 a 30 en la interfaz.
+- Los nombres de producto que podrían ser fórmulas se escapan al exportar a CSV.
 
-```bash
-python forecast_cli.py --csv data/ventas.csv --send
-```
+Incluye cierres con cero únicamente cuando corresponda. Una rotura de stock puede
+ocultar demanda; no equivale a ausencia de demanda.
 
-**Argumentos disponibles:**
+## Métodos y evaluación
 
-- `--csv` (requerido): Ruta al archivo CSV de ventas.
-- `--sheet-id` (opcional): ID de la hoja de Google Sheets. Si no se especifica, se usará el valor del archivo `.env`.
-- `--retrain` (opcional): Forza el reentrenamiento del modelo, ignorando cualquier versión guardada.
-- `--send` (opcional): Envía una notificación a Telegram después de generar el pronóstico.
+**Referencia semanal (por defecto):** repite las ventas de los últimos siete días.
+Con menos de siete días usa la media disponible. No inventa intervalos de confianza.
 
-### Usando Docker (Recomendado)
+**AutoARIMA (opcional):**
 
-Docker simplifica la ejecución, ya que empaqueta la aplicación y todas sus dependencias.
+~~~bash
+python -m pip install -r requirements_models.txt
+python forecast_cli.py --demo --model autoarima --backtest
+~~~
 
-1.  **Construye la imagen de Docker:**
-    ```bash
-    docker build -t pan-predict .
-    ```
+Usa StatsForecast 2.x, con estacionalidad semanal si todos los productos tienen al
+menos 14 días. Los intervalos del 90% son estimaciones del modelo, no garantías.
+Un fallo se comunica; no se sustituye el modelo silenciosamente. Cada ejecución
+ajusta el modelo de nuevo y no deserializa los antiguos archivos pickle.
 
-2.  **Ejecuta el contenedor:**
-    Asegúrate de que tu archivo `.env` está completo. El siguiente comando monta el directorio `data` y pasa las variables de entorno al contenedor.
+**Evaluación:** reserva los últimos siete días y ajusta solo con fechas anteriores.
+Informa MAE en unidades y WAPE en porcentaje por producto. WAPE queda sin definir
+cuando las ventas de evaluación suman cero. Es una ventana, no una validación
+exhaustiva. Los resultados sintéticos no acreditan rendimiento real.
 
-    ```bash
-    docker run --rm --env-file .env -v "$(pwd)/data":/app/data pan-predict
-    ```
+No se usan festivos, clima ni Prophet en esta versión.
 
-    Este comando ejecutará el `entrypoint.sh`, que a su vez llama a `src/main.py` y `src/send_telegram.py`.
+## Integraciones opcionales
 
-    *Nota: El `entrypoint.sh` por defecto no usa los argumentos del CLI. Para una ejecución parametrizada dentro de Docker, deberás modificar el `entrypoint.sh` o pasar los argumentos al final del comando `docker run`.*
+El flujo local funciona sin ellas. La interfaz no realiza envíos externos.
 
----
+Google Sheets:
 
-##  validating
+~~~bash
+python -m pip install -r requirements_integrations.txt
+~~~
 
-El proyecto incluye un notebook `validate.ipynb` que te permite ejecutar y visualizar los pasos clave del proceso de pronóstico de forma interactiva. Es una excelente herramienta para entender cómo funcionan el preprocesamiento, el modelado y la generación de características.
+Copia **.env.example** como **.env** y configura **GOOGLE_SERVICE_ACC_JSON** con el
+JSON completo de tu cuenta de servicio. Comparte la hoja con esa cuenta.
+Esta orden reemplaza los datos de la pestaña **Pronóstico** de la hoja indicada:
+
+~~~bash
+python forecast_cli.py --csv ventas.csv --sheet-id ID_DE_TU_HOJA
+~~~
+
+Revisa el destino antes de ejecutarla. Se envían productos, fechas y previsiones.
+Una variable **GOOGLE_SHEET_ID** heredada no inicia la publicación: se exige
+**--sheet-id**.
+
+Telegram requiere **TELEGRAM_TOKEN** y **CHAT_ID**:
+
+~~~bash
+python forecast_cli.py --csv ventas.csv --send
+~~~
+
+Solo se envía con **--send**: primera fecha prevista, con fecha exacta y texto plano.
+No requiere Google Sheets. Las pruebas simulan Telegram; no envían mensajes.
+No publiques tu **.env**, credenciales ni ventas reales.
+
+## Docker — demo por terminal
+
+~~~bash
+docker build -t panpredict .
+docker run --rm panpredict
+~~~
+
+Para conservar el resultado en Linux/macOS:
+
+~~~bash
+docker run --rm -v "$(pwd)/output:/app/output" panpredict --demo --backtest
+~~~
+
+En PowerShell:
+
+~~~powershell
+docker run --rm -v "${PWD}/output:/app/output" panpredict --demo --backtest
+~~~
+
+El contenedor base no incluye interfaz, AutoARIMA ni Google Sheets.
+El entrypoint transmite los argumentos al CLI; no activa notificaciones.
+
+## Desarrollo y pruebas
+
+~~~bash
+python -m pip install -r requirements_dev.txt
+python -m pytest -q
+~~~
+
+Instala también **requirements_models.txt** para probar AutoARIMA real.
+GitHub Actions configura la suite local en Linux/Windows y una comprobación
+separada del modelo opcional. Revisa los resultados del commit correspondiente.
+
+Los notebooks, scripts de depuración y el pickle anterior se conservan como
+material histórico. Los puntos de entrada mantenidos son **app.py**,
+**forecast_cli.py** y los módulos de **src/** utilizados por ambos.
+
+- [Cómo contribuir](CONTRIBUTING.md)
+- [Guía para un piloto](docs/PILOT.md)
+- [Próximos pasos](docs/ROADMAP.md)
+- [Cambios](CHANGELOG.md)
+
+## Licencia
+
+Código bajo [MIT](LICENSE). Las dependencias mantienen sus propias licencias.
+Esto no convierte al proyecto en software validado para producción.

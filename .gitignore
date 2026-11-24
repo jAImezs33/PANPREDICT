@@ -62,3 +62,12 @@ config_local.py
 
 # Sample data files
 ventas_panaderia_*.csv
+
+# Local environments and generated forecasts
+.venv/
+output/
+.pytest_cache/
+*.pkl
+# The only committed CSVs are synthetic examples.
+!examples/
+!examples/*.csv
